@@ -8,14 +8,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.get("/", (req, res) => res.send("Project with the mysql running"));
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/categories", require("./routes/category"));
 app.use("/api/products", require("./routes/product"));
-app.post("/test", (req, res) => {
-  console.log("Test hit", req.body);
-  res.json({ message: "Test OK" });
-});
+app.use("/api/wishlist", require("./routes/wishlist"));
+
 
 sequelize
   .authenticate()

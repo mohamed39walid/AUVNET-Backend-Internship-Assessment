@@ -12,7 +12,7 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/categories", require("./routes/category"));
 app.use("/api/products", require("./routes/product"));
 app.use("/api/wishlist", require("./routes/wishlist"));
-
+app.use("/api/admin", require("./routes/admin"));
 
 sequelize
   .authenticate()

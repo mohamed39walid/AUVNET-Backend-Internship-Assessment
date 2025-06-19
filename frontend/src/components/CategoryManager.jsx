@@ -1,90 +1,109 @@
 import React, { useEffect, useState } from "react";
 import axios from "../api/axios";
-
-// Utility to flatten nested categories with parent names
-function flattenCategories(categories, parentMap = {}, level = 0) {
-  let flat = [];
-  for (const cat of categories) {
-    const parentName = parentMap[cat.parent_id] || "-";
-    flat.push({ ...cat, parentName, level });
-
-    if (cat.subcategories && cat.subcategories.length > 0) {
-      const newMap = { ...parentMap, [cat.id]: cat.name };
-      flat = flat.concat(flattenCategories(cat.subcategories, newMap, level + 1));
-    }
-  }
-  return flat;
-}
+import CategoryTree from "../components/CategoryTree";
 
 function CategoryManager() {
   const [categories, setCategories] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
   const [form, setForm] = useState({ name: "", parent_id: "" });
   const [editingId, setEditingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const token = localStorage.getItem("token");
 
-  const fetchCategories = async () => {
+  const fetchPaginated = async () => {
     try {
-      const res = await axios.get("/categories");
-      const flat = flattenCategories(res.data);
-      setCategories(flat);
-    } catch (err) {
-      alert("Failed to fetch categories.");
+      const res = await axios.get(`/categories?page=${page}&limit=5`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories(res.data.data);
+      setTotalPages(res.data.pages);
+    } catch {
+      alert("Failed to fetch categories");
+    }
+  };
+
+  const fetchAll = async () => {
+    try {
+      const res = await axios.get(`/categories?page=1&limit=100`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const flatten = (arr) => {
+        let result = [];
+        for (let c of arr) {
+          result.push({ id: c.id, name: c.name });
+          if (c.subcategories?.length) {
+            result = result.concat(flatten(c.subcategories));
+          }
+        }
+        return result;
+      };
+      setAllCategories(flatten(res.data.data));
+    } catch {
+      alert("Failed to fetch all categories");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      name: form.name,
-      parent_id: form.parent_id === "" ? null : Number(form.parent_id),
-    };
-
     try {
+      const payload = {
+        name: form.name,
+        parent_id: form.parent_id || null,
+      };
       if (editingId) {
-        await axios.put(`/categories/${editingId}`, payload);
+        await axios.put(`/categories/${editingId}`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setEditingId(null);
       } else {
-        await axios.post("/categories", payload);
+        await axios.post("/categories", payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
-
       setForm({ name: "", parent_id: "" });
-      fetchCategories();
-    } catch (err) {
-      alert("Failed to save category.");
+      fetchPaginated();
+      fetchAll();
+    } catch {
+      alert("Failed to save category");
     }
   };
 
   const handleEdit = (cat) => {
-    setForm({
-      name: cat.name,
-      parent_id: cat.parent_id !== null ? String(cat.parent_id) : "",
-    });
+    setForm({ name: cat.name, parent_id: cat.parent_id || "" });
     setEditingId(cat.id);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    if (!window.confirm("Are you sure?")) return;
     try {
-      await axios.delete(`/categories/${id}`);
-      fetchCategories();
-    } catch (err) {
-      alert("Failed to delete category.");
+      await axios.delete(`/categories/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchPaginated();
+      fetchAll();
+    } catch {
+      alert("Failed to delete category");
     }
   };
 
   useEffect(() => {
-    fetchCategories();
+    fetchPaginated();
+  }, [page]);
+
+  useEffect(() => {
+    fetchAll();
   }, []);
 
   return (
     <div className="container mt-5">
-      <h3 className="mb-4">Manage Categories</h3>
+      <h3 className="mb-4">Manage Categories (Paginated)</h3>
 
-      {/* Category Form */}
+      {/* Add / Edit Form */}
       <form onSubmit={handleSubmit} className="row g-3 mb-4">
         <div className="col-md-5">
           <input
             className="form-control"
-            name="name"
             placeholder="Category Name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -94,61 +113,47 @@ function CategoryManager() {
         <div className="col-md-5">
           <select
             className="form-select"
-            name="parent_id"
             value={form.parent_id}
             onChange={(e) => setForm({ ...form, parent_id: e.target.value })}
           >
             <option value="">No Parent</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {"‣ ".repeat(cat.level) + cat.name}
-              </option>
+            {allCategories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
         </div>
         <div className="col-md-2">
-          <button className="btn btn-primary w-100" type="submit">
+          <button type="submit" className="btn btn-primary w-100">
             {editingId ? "Update" : "Add"}
           </button>
         </div>
       </form>
 
-      {/* Category Table */}
-      <table className="table table-bordered">
-        <thead className="table-light">
-          <tr>
-            <th>Name</th>
-            <th>Parent</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {categories.map((cat) => (
-            <tr key={cat.id}>
-              <td>
-                <span style={{ paddingLeft: `${cat.level * 20}px` }}>
-                  {cat.name}
-                </span>
-              </td>
-              <td>{cat.parentName}</td>
-              <td>
-                <button
-                  className="btn btn-sm btn-warning me-2"
-                  onClick={() => handleEdit(cat)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => handleDelete(cat.id)}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Paginated Tree */}
+      <CategoryTree
+        categories={categories}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      {/* Pagination Controls */}
+      <div className="d-flex justify-content-between mt-4">
+        <button
+          className="btn btn-outline-secondary"
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page === 1}
+        >
+          ⬅️ Previous
+        </button>
+        <span className="align-self-center">Page {page} of {totalPages}</span>
+        <button
+          className="btn btn-outline-secondary"
+          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages}
+        >
+          Next ➡️
+        </button>
+      </div>
     </div>
   );
 }

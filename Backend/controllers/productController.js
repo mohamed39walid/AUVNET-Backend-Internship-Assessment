@@ -1,5 +1,6 @@
 const { Product, User, Category } = require("../models");
 
+// Create a product
 exports.createProduct = async (req, res) => {
   try {
     const { name, description, price, categoryId } = req.body;
@@ -23,14 +24,19 @@ exports.createProduct = async (req, res) => {
   }
 };
 
+// Get all products with pagination and optional filtering
 exports.getAllProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, categoryId, userId } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const { categoryId, userId } = req.query;
+
     const where = {};
     if (categoryId) where.categoryId = categoryId;
     if (userId) where.userId = userId;
 
-    const products = await Product.findAndCountAll({
+    const { count, rows } = await Product.findAndCountAll({
       where,
       include: [
         {
@@ -44,20 +50,23 @@ exports.getAllProducts = async (req, res) => {
           attributes: ["id", "name"],
         },
       ],
-      limit: parseInt(limit),
-      offset: (parseInt(page) - 1) * parseInt(limit),
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]],
     });
 
     res.json({
-      total: products.count,
-      pages: Math.ceil(products.count / limit),
-      data: products.rows,
+      total: count,
+      pages: Math.ceil(count / limit),
+      currentPage: page,
+      data: rows,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
+// Get single product by ID
 exports.getProductByID = async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id, {
@@ -85,6 +94,7 @@ exports.getProductByID = async (req, res) => {
   }
 };
 
+// Update product by owner or admin
 exports.updateProduct = async (req, res) => {
   try {
     const { name, description, price, categoryId } = req.body;
@@ -94,7 +104,6 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found!" });
     }
 
-    // Allow update only by owner or admin
     if (req.user.id !== product.userId && req.user.type !== "admin") {
       return res.status(403).json({ message: "Forbidden: not your product" });
     }
@@ -111,6 +120,7 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
+// Delete product by owner or admin
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
@@ -119,7 +129,6 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found!" });
     }
 
-    // Allow deletion only by owner or admin
     if (req.user.id !== product.userId && req.user.type !== "admin") {
       return res.status(403).json({ message: "Forbidden: not your product" });
     }

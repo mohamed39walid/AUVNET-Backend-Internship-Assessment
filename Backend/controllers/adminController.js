@@ -1,9 +1,28 @@
 const { User, Product, Category } = require("../models");
 const bcrypt = require("bcryptjs");
 
+// Utility to parse page and limit
+const parsePagination = (query) => {
+  const page = parseInt(query.page) || 1;
+  const limit = parseInt(query.limit) || 10;
+  const offset = (page - 1) * limit;
+  return { page, limit, offset };
+};
+
 exports.getAllAdmins = async (req, res) => {
-  const admins = await User.findAll({ where: { type: "admin" } });
-  res.json(admins);
+  const { page, limit, offset } = parsePagination(req.query);
+
+  const result = await User.findAndCountAll({
+    where: { type: "admin" },
+    limit,
+    offset,
+  });
+
+  res.json({
+    total: result.count,
+    pages: Math.ceil(result.count / limit),
+    data: result.rows,
+  });
 };
 
 exports.addAdmin = async (req, res) => {
@@ -48,8 +67,19 @@ exports.deleteAdmin = async (req, res) => {
 };
 
 exports.getAllUsers = async (req, res) => {
-  const users = await User.findAll({ where: { type: "user" } });
-  res.json(users);
+  const { page, limit, offset } = parsePagination(req.query);
+
+  const result = await User.findAndCountAll({
+    where: { type: "user" },
+    limit,
+    offset,
+  });
+
+  res.json({
+    total: result.count,
+    pages: Math.ceil(result.count / limit),
+    data: result.rows,
+  });
 };
 
 exports.deleteUser = async (req, res) => {
@@ -61,16 +91,24 @@ exports.deleteUser = async (req, res) => {
   res.json({ message: "User deleted." });
 };
 
-
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.findAll({
+    const { page, limit, offset } = parsePagination(req.query);
+
+    const result = await Product.findAndCountAll({
       include: [
-        { model: User, as: "owner" },         // ✅ alias defined in Product
-        { model: Category, as: "category" },  // ✅ FIXED: must match alias
+        { model: User, as: "owner" },
+        { model: Category, as: "category" },
       ],
+      limit,
+      offset,
     });
-    res.json(products);
+
+    res.json({
+      total: result.count,
+      pages: Math.ceil(result.count / limit),
+      data: result.rows,
+    });
   } catch (error) {
     console.error("Get products failed:", error);
     res.status(500).json({ error: error.message });

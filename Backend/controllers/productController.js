@@ -4,13 +4,19 @@ exports.createProduct = async (req, res) => {
   try {
     const { name, description, price, categoryId } = req.body;
     const userId = req.user.id;
+
+    if (!name || !description || !price) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
     const product = await Product.create({
       name,
       description,
       price,
       userId,
-      categoryId,
+      categoryId: categoryId || null,
     });
+
     res.status(201).json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -29,13 +35,13 @@ exports.getAllProducts = async (req, res) => {
       include: [
         {
           model: User,
-          as: 'owner',
-          attributes: ['id', 'username', 'email'],
+          as: "owner",
+          attributes: ["id", "username", "email"],
         },
         {
           model: Category,
-          as: 'category',
-          attributes: ['id', 'name'],
+          as: "category",
+          attributes: ["id", "name"],
         },
       ],
       limit: parseInt(limit),
@@ -58,19 +64,20 @@ exports.getProductByID = async (req, res) => {
       include: [
         {
           model: User,
-          as: 'owner',
-          attributes: ['id', 'username', 'email'],
+          as: "owner",
+          attributes: ["id", "username", "email"],
         },
         {
           model: Category,
-          as: 'category',
-          attributes: ['id', 'name'],
+          as: "category",
+          attributes: ["id", "name"],
         },
       ],
     });
 
-    if (!product)
+    if (!product) {
       return res.status(404).json({ message: "Product not found!" });
+    }
 
     res.json(product);
   } catch (error) {
@@ -82,10 +89,14 @@ exports.updateProduct = async (req, res) => {
   try {
     const { name, description, price, categoryId } = req.body;
     const product = await Product.findByPk(req.params.id);
-    if (!product) return res.status(404).json({ message: "Not found" });
 
+    if (!product) {
+      return res.status(404).json({ message: "Product not found!" });
+    }
+
+    // Allow update only by owner or admin
     if (req.user.id !== product.userId && req.user.type !== "admin") {
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json({ message: "Forbidden: not your product" });
     }
 
     product.name = name || product.name;
@@ -103,15 +114,18 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
-    if (!product)
-      return res.status(404).json({ message: "Product not found!" });
 
+    if (!product) {
+      return res.status(404).json({ message: "Product not found!" });
+    }
+
+    // Allow deletion only by owner or admin
     if (req.user.id !== product.userId && req.user.type !== "admin") {
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json({ message: "Forbidden: not your product" });
     }
 
     await product.destroy();
-    res.json({ message: "Product deleted!" });
+    res.json({ message: "Product deleted successfully!" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

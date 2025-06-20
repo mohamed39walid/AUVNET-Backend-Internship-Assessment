@@ -25,18 +25,22 @@ exports.createProduct = async (req, res) => {
 };
 
 // Get all products with pagination and optional filtering
+
 exports.getAllProducts = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
-    const { categoryId, userId } = req.query;
+    const { page = 1, limit = 25, categoryId, userId } = req.query;
+    const parsedLimit = parseInt(limit);
+    const parsedPage = parseInt(page);
+
+    if (parsedLimit > 25) {
+      return res.status(400).json({ message: "Limit cannot exceed 25 items per request." });
+    }
 
     const where = {};
     if (categoryId) where.categoryId = categoryId;
     if (userId) where.userId = userId;
 
-    const { count, rows } = await Product.findAndCountAll({
+    const products = await Product.findAndCountAll({
       where,
       include: [
         {
@@ -50,21 +54,21 @@ exports.getAllProducts = async (req, res) => {
           attributes: ["id", "name"],
         },
       ],
-      limit,
-      offset,
-      order: [["createdAt", "DESC"]],
+      limit: parsedLimit,
+      offset: (parsedPage - 1) * parsedLimit,
     });
 
     res.json({
-      total: count,
-      pages: Math.ceil(count / limit),
-      currentPage: page,
-      data: rows,
+      total: products.count,
+      pages: Math.ceil(products.count / parsedLimit),
+      currentPage: parsedPage,
+      data: products.rows,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Get single product by ID
 exports.getProductByID = async (req, res) => {

@@ -45,8 +45,8 @@ function ProductManager() {
             <tr key={product.id}>
               <td>{product.name}</td>
               <td>{product.description}</td>
-              <td>${product.price}</td>
-              <td>{product.Category?.name || "N/A"}</td>
+              <td>${product.price.toLocaleString()}</td>
+              <td>{product.category?.name || "N/A"}</td>
               <td>
                 <button
                   className="btn btn-sm btn-danger"

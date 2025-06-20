@@ -4,61 +4,64 @@ import axios from "../api/axios";
 function AllProducts() {
   const [products, setProducts] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   const token = localStorage.getItem("token");
   const currentUser = token ? JSON.parse(atob(token.split(".")[1])) : null;
 
-  // Fetch all products
   const fetchProducts = async () => {
     try {
-      const res = await axios.get("/products");
+      const res = await axios.get(`/products?page=${page}&limit=6`);
       setProducts(res.data.data || []);
+      setTotalPages(res.data.pages || 1);
     } catch (err) {
       alert("Failed to fetch products.");
     }
   };
 
-  // Fetch user's wishlist
   const fetchWishlist = async () => {
     if (!token) return;
     try {
       const res = await axios.get("/wishlist", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setWishlist(res.data || []);
+      setWishlist(res.data?.data || []); // handle paginated structure
     } catch (err) {
       alert("Failed to fetch wishlist.");
     }
   };
 
-  const isInWishlist = (productId) => {
-    return wishlist.some((item) => item.productId === productId);
-  };
+  const isInWishlist = (productId) =>
+    wishlist.some((item) => item.productId === productId);
 
   const handleToggleWishlist = async (productId) => {
     if (!token) return alert("Please log in first.");
 
     try {
       if (isInWishlist(productId)) {
-        // Remove from wishlist
         await axios.delete(`/wishlist/${productId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        // Add to wishlist
         await axios.post(
           "/wishlist",
           { productId },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
-      fetchWishlist();
+      await fetchWishlist();
     } catch (err) {
-      alert("Failed to update wishlist.");
+      const msg = err?.response?.data?.message || "Failed to update wishlist.";
+      alert(msg);
     }
   };
 
   useEffect(() => {
     fetchProducts();
+  }, [page]);
+
+  useEffect(() => {
     fetchWishlist();
   }, []);
 
@@ -86,6 +89,25 @@ function AllProducts() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Pagination */}
+      <div className="d-flex justify-content-between mt-4">
+        <button
+          className="btn btn-outline-secondary"
+          onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+          disabled={page === 1}
+        >
+          ⬅️ Previous
+        </button>
+        <span className="align-self-center">Page {page} of {totalPages}</span>
+        <button
+          className="btn btn-outline-secondary"
+          onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+          disabled={page === totalPages}
+        >
+          Next ➡️
+        </button>
       </div>
     </div>
   );

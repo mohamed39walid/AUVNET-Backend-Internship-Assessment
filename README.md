@@ -38,8 +38,8 @@ A fully functional full-stack e-commerce platform with user and admin roles, pro
 ### 📁 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/ecommerce-app.git
-cd ecommerce-app
+git clone https://github.com/mohamed39walid/AUVNET-Backend-Internship-Assessment.git
+cd AUVNET-Backend-Internship-Assessment
 ```
 
 ---
@@ -47,7 +47,7 @@ cd ecommerce-app
 ### 📦 2. Backend Setup
 
 ```bash
-cd backend
+cd Backend
 npm install
 cp .env.example .env
 ```
